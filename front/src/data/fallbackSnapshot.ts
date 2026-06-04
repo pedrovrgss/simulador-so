@@ -53,7 +53,7 @@ export const fallbackSnapshot: SimulatorSnapshot = {
   queues: [
     {
       id: 'fila-tr',
-      title: 'Fila de tempo real',
+      title: 'FCFS',
       kind: 'FCFS',
       processes: [
         {
@@ -62,13 +62,14 @@ export const fallbackSnapshot: SimulatorSnapshot = {
           color: '#f59e0b',
           classLabel: 'Tempo real',
           queueLabel: 'FCFS',
+          memoryMb: 1024,
         },
       ],
     },
     {
       id: 'fila-f1',
       title: 'Fila de feedback 1',
-      kind: 'Alta prioridade',
+      kind: 'Nível 1',
       processes: [
         {
           pid: 'U-11',
@@ -76,6 +77,7 @@ export const fallbackSnapshot: SimulatorSnapshot = {
           color: '#7dd3fc',
           classLabel: 'Usuario',
           queueLabel: 'Feedback 1',
+          memoryMb: 1024,
         },
         {
           pid: 'U-12',
@@ -83,13 +85,14 @@ export const fallbackSnapshot: SimulatorSnapshot = {
           color: '#c084fc',
           classLabel: 'Usuario',
           queueLabel: 'Feedback 1',
+          memoryMb: 2048,
         },
       ],
     },
     {
       id: 'fila-f2',
       title: 'Fila de feedback 2',
-      kind: 'Media prioridade',
+      kind: 'Nível 2',
       processes: [
         {
           pid: 'U-08',
@@ -97,13 +100,14 @@ export const fallbackSnapshot: SimulatorSnapshot = {
           color: '#34d399',
           classLabel: 'Usuario',
           queueLabel: 'Feedback 2',
+          memoryMb: 1024,
         },
       ],
     },
     {
       id: 'fila-f3',
       title: 'Fila de feedback 3',
-      kind: 'Baixa prioridade',
+      kind: 'Nível 3',
       processes: [
         {
           pid: 'U-01',
@@ -111,13 +115,15 @@ export const fallbackSnapshot: SimulatorSnapshot = {
           color: '#f472b6',
           classLabel: 'Usuario',
           queueLabel: 'Feedback 3',
+          memoryMb: 2048,
         },
       ],
     },
     {
-      id: 'fila-bloqueados',
-      title: 'Bloqueados',
-      kind: 'Aguardando E/S',
+      id: 'fila-dma',
+      title: 'Aguardando I/O',
+      kind: 'Direct Memory Access',
+      activeProcessPids: ['U-05'],
       processes: [
         {
           pid: 'U-05',
@@ -125,6 +131,7 @@ export const fallbackSnapshot: SimulatorSnapshot = {
           color: '#fb7185',
           classLabel: 'Usuario',
           queueLabel: 'Disco 2',
+          memoryMb: 1024,
         },
         {
           pid: 'U-06',
@@ -132,6 +139,7 @@ export const fallbackSnapshot: SimulatorSnapshot = {
           color: '#a3e635',
           classLabel: 'Usuario',
           queueLabel: 'Disco 4',
+          memoryMb: 1024,
         },
       ],
     },
@@ -146,6 +154,7 @@ export const fallbackSnapshot: SimulatorSnapshot = {
           color: '#94a3b8',
           classLabel: 'Usuario',
           queueLabel: 'Finalizado',
+          memoryMb: 1024,
         },
       ],
     },

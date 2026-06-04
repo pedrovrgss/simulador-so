@@ -13,6 +13,7 @@ export interface RunningProcessInfo {
   phase: ProcessorPhase
   remainingCycles: number
   totalCycles: number
+  processClass?: 'tempo_real' | 'usuario'
 }
 
 export interface ProcessorInfo {

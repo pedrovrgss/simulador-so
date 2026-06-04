@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react'
 import type { ProcessorInfo, ProcessorPhase } from '../types/processor'
 
 interface CpuCardProps {
@@ -15,83 +14,73 @@ const PHASE_LABELS: Record<ProcessorPhase, string> = {
 
 export function CpuCard({ cpu, accentColor }: CpuCardProps) {
   const isActive = cpu.status === 'executando'
-  const runningProcess = cpu.runningProcess
-  const progressValue =
-    isActive && runningProcess
-      ? Math.max(
-          0,
-          Math.min(
-            100,
-            ((runningProcess.totalCycles - runningProcess.remainingCycles) /
-              runningProcess.totalCycles) *
-              100,
-          ),
-        )
+  const process = cpu.runningProcess
+  const color = isActive ? accentColor : null
+
+  const progress =
+    isActive && process
+      ? Math.max(0, Math.min(100,
+          ((process.totalCycles - process.remainingCycles) / process.totalCycles) * 100,
+        ))
       : 0
 
   return (
     <article
-      className="h-[8.64rem] w-[8.64rem] rounded-md border border-white/10 bg-white/4 p-2.5"
-      style={{ '--cpu-accent': accentColor } as CSSProperties}
+      className="w-[8.64rem] rounded-md border border-white/10 p-2.5 transition-colors"
+      style={{
+        backgroundColor: color ? `${color}12` : 'rgba(255,255,255,0.04)',
+        borderColor: color ? `${color}33` : undefined,
+      }}
     >
-      <div className="flex h-full flex-col justify-between">
-        <div className="flex items-start justify-between gap-2">
-          <div className="space-y-1">
-            <p className="text-[0.58rem] uppercase tracking-[0.2em] text-slate-500">{cpu.label}</p>
-            <div
-              className="h-1 w-7 rounded-[2px]"
-              style={{ backgroundColor: isActive ? accentColor : '#64748b' }}
-            />
-          </div>
-
-          <div className="mt-0.5 flex items-center gap-1.5">
-            <span
-              className="h-2 w-2 rounded-[2px]"
-              style={{ backgroundColor: isActive ? accentColor : '#64748b' }}
-            />
-            <span className="text-[0.55rem] uppercase tracking-[0.16em] text-slate-400">
-              {isActive ? 'Ativa' : 'Livre'}
-            </span>
-          </div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[0.6rem] uppercase tracking-[0.22em] text-slate-500">{cpu.label}</p>
+        <div className="flex items-center gap-1">
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: color ?? '#334155' }}
+          />
+          <span
+            className="text-[0.55rem] uppercase tracking-[0.14em]"
+            style={{ color: color ?? '#64748b' }}
+          >
+            {isActive ? 'ativa' : 'livre'}
+          </span>
         </div>
+      </div>
 
-        <div className="space-y-2">
-          {isActive && runningProcess ? (
-            <>
-              <div className="space-y-1">
-                <p className="text-[0.95rem] font-semibold leading-none text-white">
-                  {runningProcess.id}
-                </p>
-                <p className="text-[0.82rem] leading-tight text-slate-200">
-                  {PHASE_LABELS[runningProcess.phase]}
-                </p>
-              </div>
+      <div className="mt-3">
+        {isActive && process ? (
+          <>
+            <p
+              className="text-[0.95rem] font-semibold leading-none"
+              style={{ color: color ?? '#fff' }}
+            >
+              {process.id}
+            </p>
+            <p className="mt-1 text-[0.68rem] leading-tight text-slate-400">
+              {PHASE_LABELS[process.phase]}
+            </p>
 
-              <div className="space-y-1.5">
-                <div className="h-1.5 w-full overflow-hidden rounded-sm bg-white/8">
-                  <div
-                    className="h-full rounded-sm"
-                    style={{
-                      width: `${progressValue}%`,
-                      backgroundColor: accentColor,
-                    }}
-                  />
-                </div>
-                <p className="text-[0.8rem] leading-none text-slate-200">
-                  <span className="font-semibold text-white">
-                    {runningProcess.remainingCycles}
-                  </span>{' '}
-                  ciclos restantes
-                </p>
+            <div className="mt-3 space-y-1.5">
+              <div className="h-1.5 w-full overflow-hidden rounded-sm bg-white/8">
+                <div
+                  className="h-full rounded-sm transition-all"
+                  style={{ width: `${progress}%`, backgroundColor: color ?? '#fff' }}
+                />
               </div>
-            </>
-          ) : (
-            <div className="space-y-1">
-              <p className="text-sm font-semibold leading-none text-white">Livre</p>
-              <p className="text-[0.72rem] leading-tight text-slate-400">Sem processo em execucao</p>
+              <div className="flex justify-between text-[0.62rem]">
+                <span className="text-slate-500">ciclos</span>
+                <span className="text-slate-300">
+                  <span className="font-medium text-white">{process.remainingCycles}</span>
+                  {' / '}
+                  {process.totalCycles}
+                </span>
+              </div>
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <p className="text-[0.72rem] text-slate-600">Sem processo</p>
+        )}
       </div>
     </article>
   )

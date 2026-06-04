@@ -16,21 +16,8 @@ function formatTimeUnit(elapsedTime: number) {
 
 function RestartIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none">
-      <path
-        d="M7 8H3V4"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M4.2 8.8A8 8 0 1 1 5.6 17.4"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-current">
+      <rect x="5" y="5" width="14" height="14" rx="2" />
     </svg>
   )
 }

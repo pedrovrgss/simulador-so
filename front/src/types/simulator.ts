@@ -6,6 +6,7 @@ export interface ProcessCard {
   color: string
   classLabel: string
   queueLabel: string
+  memoryMb?: number
 }
 
 export interface CpuSlot {
@@ -21,6 +22,7 @@ export interface QueueSnapshot {
   title: string
   kind: string
   processes: ProcessCard[]
+  activeProcessPids?: string[]
 }
 
 export interface MemoryBlock {
