@@ -34,32 +34,54 @@ reaproveitar a mesma logica depois em outra UI.
 - usuario com prioridade 1, feedback de 3 filas e quantum 2
 - representacao visual da memoria por blocos ocupados e livres
 
-## Estrutura atual
+## Estrutura para entrega
 
 ### Backend
+
+Arquivos principais:
+
+- `back/app/main.py`: rotas da API usadas pela tela
+- `back/app/models.py`: modelos de dados enviados entre backend e frontend
+- `back/app/parser.py`: leitura e validacao da entrada textual
+- `back/app/sample_data.py`: entrada padrao da demonstracao
+- `back/app/memory.py`: controle dos blocos da memoria principal
+- `back/app/resources.py`: controle dos discos
+- `back/app/runtime.py`: estruturas internas de CPU e processo
+- `back/app/admission.py`: entrada dos processos nas filas
+- `back/app/scheduler.py`: escolha dos processos para as CPUs
+- `back/app/execution.py`: regras de CPU, I/O, quantum e finalizacao
+- `back/app/simulator.py`: motor principal da simulacao
+- `back/app/snapshot.py`: conversao do estado interno para a tela
+- `back/DIVISAO_BACKEND.md`: divisao sugerida para apresentacao do grupo
+- `back/requirements.txt`: dependencias do backend
 
 `back/app/main.py`
 
 - `GET /health`: verifica se a API esta ativa
-- `GET /api/snapshot`: devolve um snapshot de demonstracao para a interface
-- `POST /api/processes/parse`: faz o parser inicial de descritores em texto
+- `GET /api/snapshot`: devolve o estado real atual da simulacao
+- `GET /api/default-input`: devolve a entrada padrao usada na demonstracao
+- `POST /api/load`: carrega uma entrada textual e reinicia a simulacao
+- `POST /api/tick`: avanca uma unidade de tempo
+- `POST /api/reset`: reinicia a simulacao com a entrada atual
+- `POST /api/processes/parse`: valida descritores em texto
 
-Formato inicial do parser:
+Formatos aceitos pelo parser:
 
 ```text
-pid;nome;classe;chegada;prioridade;memoria_mb;cpu1;disco;io;cpu2
+[id, cpu1, io, cpu2, ram]
+[id, prioridade, cpu1, io, cpu2, ram, discos]
 ```
 
 Exemplo:
 
 ```text
-TR-01;Controle de voo;TR;0;0;256;5;-;-;-
-U-07;Editor;U;1;1;2048;3;2;4;2
+[1, 0, 5, 0, 0, 512, 0]
+[2, 1, 6, 3, 4, 1024, 1]
 ```
 
 Observacao:
-esse formato foi colocado como ponto de partida e pode ser adaptado rapidamente
-quando o formato definitivo da disciplina estiver fechado.
+todos os processos chegam no tick 0. No formato minimo, o processo entra como
+usuario, sem discos.
 
 ### Frontend
 
@@ -77,9 +99,19 @@ Se o backend nao estiver rodando, o frontend usa um snapshot local de demonstrac
 
 ### Backend
 
+Na primeira vez, instale as dependencias dentro de um ambiente virtual:
+
 ```bash
 cd back
-python -m uvicorn app.main:app --reload
+python3 -m venv .venv
+./.venv/bin/pip install -r requirements.txt
+```
+
+Depois rode a API:
+
+```bash
+cd back
+./.venv/bin/uvicorn app.main:app --reload
 ```
 
 ### Frontend
@@ -89,11 +121,19 @@ cd front
 npm run dev
 ```
 
-## Proximos passos sugeridos
+## Pacote final
 
-1. Implementar o modelo interno de processo e estados.
-2. Criar o relogio da simulacao e o avanco por unidade de tempo.
-3. Implementar o escalonador de tempo real.
-4. Implementar o feedback de 3 filas para usuario.
-5. Integrar alocacao e liberacao de memoria por blocos.
-6. Integrar E/S em disco e retorno do processo para pronto.
+Para entregar o projeto, os arquivos importantes sao:
+
+- `README.md`
+- `LICENSE`
+- `.gitignore`
+- pasta `back`
+- pasta `front`
+
+Arquivos de cache, testes locais e ambientes virtuais nao fazem parte da entrega
+final. Eles ficam no `.gitignore` para nao misturar codigo do projeto com
+arquivos gerados pela maquina.
+
+Se for enviar por ZIP, nao inclua `back/.venv`, `node_modules`, `dist`,
+`__pycache__` ou `.pytest_cache`.

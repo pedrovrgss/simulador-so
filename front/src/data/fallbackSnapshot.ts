@@ -15,6 +15,8 @@ export const fallbackSnapshot: SimulatorSnapshot = {
       },
       quantumLeft: null,
       remainingBurst: 4,
+      totalBurst: 10,
+      phase: 'fase_cpu_1',
     },
     {
       id: 'cpu-2',
@@ -28,6 +30,8 @@ export const fallbackSnapshot: SimulatorSnapshot = {
       },
       quantumLeft: 1,
       remainingBurst: 2,
+      totalBurst: 8,
+      phase: 'fase_cpu_2',
     },
     {
       id: 'cpu-3',
@@ -41,6 +45,8 @@ export const fallbackSnapshot: SimulatorSnapshot = {
       },
       quantumLeft: 2,
       remainingBurst: 5,
+      totalBurst: 12,
+      phase: 'cpu_bound',
     },
     {
       id: 'cpu-4',
@@ -48,6 +54,8 @@ export const fallbackSnapshot: SimulatorSnapshot = {
       runningProcess: null,
       quantumLeft: null,
       remainingBurst: null,
+      totalBurst: null,
+      phase: null,
     },
   ],
   queues: [
@@ -201,6 +209,14 @@ export const fallbackSnapshot: SimulatorSnapshot = {
     {
       id: 'disk-1',
       label: 'Disco 1',
+      status: 'io',
+      ownerProcess: {
+        pid: 'U-05',
+        name: 'Banco',
+        color: '#fb7185',
+        classLabel: 'Usuario',
+        queueLabel: 'Disco 1',
+      },
       activeProcess: {
         pid: 'U-05',
         name: 'Banco',
@@ -213,26 +229,36 @@ export const fallbackSnapshot: SimulatorSnapshot = {
     {
       id: 'disk-2',
       label: 'Disco 2',
+      status: 'reservado',
+      ownerProcess: {
+        pid: 'U-06',
+        name: 'Relatorios',
+        color: '#a3e635',
+        classLabel: 'Usuario',
+        queueLabel: 'Disco 2',
+      },
       activeProcess: null,
-      waitingQueue: [
-        {
-          pid: 'U-06',
-          name: 'Relatorios',
-          color: '#a3e635',
-          classLabel: 'Usuario',
-          queueLabel: 'Disco 2',
-        },
-      ],
+      waitingQueue: [],
     },
     {
       id: 'disk-3',
       label: 'Disco 3',
+      status: 'livre',
+      ownerProcess: null,
       activeProcess: null,
       waitingQueue: [],
     },
     {
       id: 'disk-4',
       label: 'Disco 4',
+      status: 'io',
+      ownerProcess: {
+        pid: 'U-04',
+        name: 'Exportacao',
+        color: '#f97316',
+        classLabel: 'Usuario',
+        queueLabel: 'Disco 4',
+      },
       activeProcess: {
         pid: 'U-04',
         name: 'Exportacao',

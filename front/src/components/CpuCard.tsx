@@ -1,26 +1,27 @@
-import type { ProcessorInfo, ProcessorPhase } from '../types/processor'
+import type { CpuSlot, ProcessPhase } from '../types/simulator'
 
 interface CpuCardProps {
-  cpu: ProcessorInfo
-  accentColor: string
+  cpu: CpuSlot
 }
 
-const PHASE_LABELS: Record<ProcessorPhase, string> = {
+const PHASE_LABELS: Record<ProcessPhase, string> = {
   fase_cpu_1: 'Fase 1 de CPU',
   fase_io: 'Fase de I/O',
   fase_cpu_2: 'Fase 2 de CPU',
   cpu_bound: 'CPU-bound',
 }
 
-export function CpuCard({ cpu, accentColor }: CpuCardProps) {
-  const isActive = cpu.status === 'executando'
+export function CpuCard({ cpu }: CpuCardProps) {
   const process = cpu.runningProcess
-  const color = isActive ? accentColor : null
+  const isActive = process !== null
+  const color = process?.color ?? null
+  const totalCycles = cpu.totalBurst ?? 0
+  const remainingCycles = cpu.remainingBurst ?? 0
 
   const progress =
-    isActive && process
+    isActive && totalCycles > 0
       ? Math.max(0, Math.min(100,
-          ((process.totalCycles - process.remainingCycles) / process.totalCycles) * 100,
+          ((totalCycles - remainingCycles) / totalCycles) * 100,
         ))
       : 0
 
@@ -55,10 +56,10 @@ export function CpuCard({ cpu, accentColor }: CpuCardProps) {
               className="text-[0.95rem] font-semibold leading-none"
               style={{ color: color ?? '#fff' }}
             >
-              {process.id}
+              {process.pid}
             </p>
             <p className="mt-1 text-[0.68rem] leading-tight text-slate-400">
-              {PHASE_LABELS[process.phase]}
+              {cpu.phase ? PHASE_LABELS[cpu.phase] : 'Executando'}
             </p>
 
             <div className="mt-3 space-y-1.5">
@@ -71,9 +72,9 @@ export function CpuCard({ cpu, accentColor }: CpuCardProps) {
               <div className="flex justify-between text-[0.62rem]">
                 <span className="text-slate-500">ciclos</span>
                 <span className="text-slate-300">
-                  <span className="font-medium text-white">{process.remainingCycles}</span>
+                  <span className="font-medium text-white">{remainingCycles}</span>
                   {' / '}
-                  {process.totalCycles}
+                  {totalCycles}
                 </span>
               </div>
             </div>

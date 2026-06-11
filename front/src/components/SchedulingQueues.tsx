@@ -62,7 +62,7 @@ function DmaQueue({ queue }: { queue: QueueSnapshot }) {
 }
 
 function QueueRow({ queue }: { queue: QueueSnapshot }) {
-  if (queue.activeProcessPids !== undefined) {
+  if (Array.isArray(queue.activeProcessPids)) {
     return <DmaQueue queue={queue} />
   }
 

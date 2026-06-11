@@ -1,4 +1,9 @@
 export type ProcessClass = 'tempo_real' | 'usuario'
+export type ProcessPhase =
+  | 'fase_cpu_1'
+  | 'fase_io'
+  | 'fase_cpu_2'
+  | 'cpu_bound'
 
 export interface ProcessCard {
   pid: string
@@ -15,6 +20,8 @@ export interface CpuSlot {
   runningProcess: ProcessCard | null
   quantumLeft: number | null
   remainingBurst: number | null
+  totalBurst: number | null
+  phase: ProcessPhase | null
 }
 
 export interface QueueSnapshot {
@@ -22,7 +29,7 @@ export interface QueueSnapshot {
   title: string
   kind: string
   processes: ProcessCard[]
-  activeProcessPids?: string[]
+  activeProcessPids?: string[] | null
 }
 
 export interface MemoryBlock {
@@ -42,6 +49,8 @@ export interface MemorySnapshot {
 export interface DiskSnapshot {
   id: string
   label: string
+  status: 'livre' | 'reservado' | 'io'
+  ownerProcess: ProcessCard | null
   activeProcess: ProcessCard | null
   waitingQueue: ProcessCard[]
 }
