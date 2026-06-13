@@ -59,23 +59,17 @@ def admitir_processo(sim, process: ProcessRuntime) -> None:
 
 
 def reservar_disco_ou_esperar(sim, process: ProcessRuntime) -> None:
-    # A reserva acontece antes da fila de pronto para evitar iniciar sem recurso.
-    if sim.disks.reserve(process.pid, process.disks_required):
-        if process.disks_required > 0:
-            sim.log_event(
-                f"{process.display_pid}: reservou {process.disks_required} disco(s)."
-            )
-        colocar_na_fila_pronto(sim, process)
-        return
-
-    sim.change_state(process, "ESPERANDO_RECURSO")
-    if process.pid not in sim.waiting_resource:
-        sim.waiting_resource.append(process.pid)
-    sim.log_event(f"{process.display_pid}: aguardando disco livre.")
+    # Com disco ilimitado, a reserva nunca falha.
+    sim.disks.reserve(process.pid, process.disks_required)
+    if process.disks_required > 0:
+        sim.log_event(
+            f"{process.display_pid}: reservou {process.disks_required} disco(s)."
+        )
+    colocar_na_fila_pronto(sim, process)
 
 
 def tentar_processos_em_espera(sim) -> None:
-    # Depois que algum recurso libera, tentamos acordar quem ficou esperando.
+    # Depois que memoria libera, tentamos acordar quem ficou esperando.
     for pid in list(sim.waiting_memory):
         process = sim.processes[pid]
         if sim.memory.allocate(process.display_pid, process.memory_mb, process.color):
@@ -84,13 +78,6 @@ def tentar_processos_em_espera(sim) -> None:
                 f"{process.display_pid}: conseguiu memoria e saiu da espera."
             )
             reservar_disco_ou_esperar(sim, process)
-
-    for pid in list(sim.waiting_resource):
-        process = sim.processes[pid]
-        if sim.disks.reserve(process.pid, process.disks_required):
-            sim.waiting_resource.remove(pid)
-            sim.log_event(f"{process.display_pid}: conseguiu disco livre.")
-            colocar_na_fila_pronto(sim, process)
 
 
 def colocar_na_fila_pronto(sim, process: ProcessRuntime) -> None:

@@ -14,7 +14,6 @@ STATE_LABELS = {
     "EXECUTANDO": "executando",
     "BLOQUEADO_IO": "bloqueado em I/O",
     "ESPERANDO_MEMORIA": "esperando memoria",
-    "ESPERANDO_RECURSO": "esperando disco",
     "FINALIZADO": "finalizado",
     "REJEITADO": "rejeitado",
 }
@@ -57,7 +56,6 @@ class SimulatorEngine:
 
         self.processes: dict[str, ProcessRuntime] = {}
         self.waiting_memory: list[str] = []
-        self.waiting_resource: list[str] = []
         self.blocked_io: list[str] = []
         self.finished: list[str] = []
         self.rejected: list[str] = []
@@ -96,7 +94,7 @@ class SimulatorEngine:
                 return False
         if self.scheduler.has_ready_process() or self.blocked_io:
             return False
-        if self.waiting_memory or self.waiting_resource:
+        if self.waiting_memory:
             return False
 
         return len(self.finished) + len(self.rejected) == len(self.processes)
@@ -113,7 +111,6 @@ class SimulatorEngine:
             disks=self.disks,
             blocked_io=self.blocked_io,
             waiting_memory=self.waiting_memory,
-            waiting_resource=self.waiting_resource,
             finished=self.finished,
             rejected=self.rejected,
             events=self.events,

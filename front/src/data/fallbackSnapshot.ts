@@ -243,40 +243,33 @@ export const fallbackSnapshot: SimulatorSnapshot = {
     {
       id: 'disk-3',
       label: 'Disco 3',
-      status: 'livre',
-      ownerProcess: null,
-      activeProcess: null,
-      waitingQueue: [],
-    },
-    {
-      id: 'disk-4',
-      label: 'Disco 4',
       status: 'io',
       ownerProcess: {
         pid: 'U-04',
         name: 'Exportacao',
         color: '#f97316',
         classLabel: 'Usuario',
-        queueLabel: 'Disco 4',
+        queueLabel: 'Disco 3',
       },
       activeProcess: {
         pid: 'U-04',
         name: 'Exportacao',
         color: '#f97316',
         classLabel: 'Usuario',
-        queueLabel: 'Disco 4',
+        queueLabel: 'Disco 3',
       },
-      waitingQueue: [
-        {
-          pid: 'U-10',
-          name: 'Upload',
-          color: '#38bdf8',
-          classLabel: 'Usuario',
-          queueLabel: 'Disco 4',
-        },
-      ],
+      waitingQueue: [],
+    },
+    {
+      id: 'disk-4',
+      label: 'Disco 4',
+      status: 'livre',
+      ownerProcess: null,
+      activeProcess: null,
+      waitingQueue: [],
     },
   ],
+
   eventLog: [
     { id: 'e1', time: 14, message: 'TR-01 criado e alocado na memoria principal.' },
     { id: 'e2', time: 15, message: 'U-07 entrou na CPU 2 a partir da fila de feedback 1.' },

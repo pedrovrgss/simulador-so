@@ -2,8 +2,9 @@ from dataclasses import dataclass
 
 from .models import DiskSnapshot, ProcessCard
 
-# Controle simples dos 4 discos.
-# Enquanto o processo estiver usando I/O, o disco fica reservado para ele.
+# 4 discos fisicos conforme os requisitos do simulador.
+# O disco tem tamanho ilimitado: a reserva nunca falha por falta de espaco.
+# Um processo nunca fica no estado ESPERANDO_RECURSO.
 
 TOTAL_DISKS = 4
 
@@ -16,51 +17,38 @@ class Disk:
 
 class DiskManager:
     def __init__(self, total_disks: int = TOTAL_DISKS) -> None:
-        # Cada disco guarda apenas qual processo esta usando ele no momento.
-        self.disks = []
-        for index in range(total_disks):
-            self.disks.append(Disk(id=index + 1))
+        self.disks = [Disk(id=i + 1) for i in range(total_disks)]
 
     def reserve(self, pid: str, amount: int) -> bool:
-        # Processo sem I/O nao precisa reservar disco.
+        # Disco de tamanho ilimitado: a reserva SEMPRE e bem-sucedida.
+        # Atribuimos aos discos livres disponiveis; se nao houver livres
+        # suficientes, ainda retornamos True (o disco absorve qualquer carga).
         if amount == 0:
             return True
 
-        # Sem disco livre suficiente, o processo fica na fila de recurso.
-        if len(self.available_disks()) < amount:
-            return False
-
-        for disk in self.available_disks()[:amount]:
+        free = self.available_disks()
+        for disk in free[:amount]:
             disk.owner_pid = pid
 
-        return True
+        return True  # nunca bloqueia o processo
 
     def release(self, pid: str) -> None:
-        # Quando o processo finaliza, todos os discos dele voltam a ficar livres.
+        # Quando o processo finaliza, os discos alocados voltam a ficar livres.
         for disk in self.disks:
             if disk.owner_pid == pid:
                 disk.owner_pid = None
 
     def owners_disks(self, pid: str) -> list[int]:
-        disk_ids: list[int] = []
-        for disk in self.disks:
-            if disk.owner_pid == pid:
-                disk_ids.append(disk.id)
-        return disk_ids
+        return [disk.id for disk in self.disks if disk.owner_pid == pid]
 
     def available_disks(self) -> list[Disk]:
-        available: list[Disk] = []
-        for disk in self.disks:
-            if disk.owner_pid is None:
-                available.append(disk)
-        return available
+        return [disk for disk in self.disks if disk.owner_pid is None]
 
     def to_snapshot(
         self,
         *,
         process_cards: dict[str, ProcessCard],
         active_io_pids: list[str],
-        waiting_resource_pids: list[str],
     ) -> list[DiskSnapshot]:
         snapshots: list[DiskSnapshot] = []
 
@@ -73,7 +61,7 @@ class DiskManager:
                 owner_process = process_cards.get(disk.owner_pid)
                 status = "reservado"
 
-                # Se o dono tambem esta bloqueado em I/O, o disco esta em uso agora.
+                # Se o dono esta em I/O agora, o disco aparece em uso.
                 if disk.owner_pid in active_io_pids:
                     status = "io"
                     active_process = owner_process
@@ -85,29 +73,8 @@ class DiskManager:
                     status=status,
                     ownerProcess=owner_process,
                     activeProcess=active_process,
-                    waitingQueue=_waiting_cards_for_disk(
-                        disk,
-                        waiting_resource_pids,
-                        process_cards,
-                    ),
+                    waitingQueue=[],  # nunca ha fila de espera por disco
                 )
             )
 
         return snapshots
-
-
-def _waiting_cards_for_disk(
-    disk: Disk,
-    waiting_resource_pids: list[str],
-    process_cards: dict[str, ProcessCard],
-) -> list[ProcessCard]:
-    waiting_cards: list[ProcessCard] = []
-
-    if disk.owner_pid is not None:
-        return waiting_cards
-
-    for pid in waiting_resource_pids:
-        if pid in process_cards:
-            waiting_cards.append(process_cards[pid])
-
-    return waiting_cards

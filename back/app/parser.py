@@ -156,9 +156,9 @@ def _validate_descriptor(
             f"Linha {line_number}: processo {pid} deve ter RAM positiva."
         )
 
-    if disks < 0 or disks > 4:
+    if disks < 0:
         raise DescriptorFormatError(
-            f"Linha {line_number}: processo {pid} deve pedir entre 0 e 4 discos."
+            f"Linha {line_number}: processo {pid} nao pode pedir numero negativo de discos."
         )
 
     if io_time == 0 and cpu2 != 0:

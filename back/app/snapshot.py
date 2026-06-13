@@ -18,7 +18,6 @@ def build_snapshot(
     disks: DiskManager,
     blocked_io: list[str],
     waiting_memory: list[str],
-    waiting_resource: list[str],
     finished: list[str],
     rejected: list[str],
     events: list[EventEntry],
@@ -34,7 +33,6 @@ def build_snapshot(
             cards=cards,
             blocked_io=blocked_io,
             waiting_memory=waiting_memory,
-            waiting_resource=waiting_resource,
             finished=finished,
             rejected=rejected,
         ),
@@ -42,7 +40,6 @@ def build_snapshot(
         disks=disks.to_snapshot(
             process_cards=cards,
             active_io_pids=blocked_io,
-            waiting_resource_pids=waiting_resource,
         ),
         eventLog=events[-200:],
     )
@@ -99,7 +96,6 @@ def _queue_snapshots(
     cards: dict[str, ProcessCard],
     blocked_io: list[str],
     waiting_memory: list[str],
-    waiting_resource: list[str],
     finished: list[str],
     rejected: list[str],
 ) -> list[QueueSnapshot]:
@@ -120,7 +116,6 @@ def _queue_snapshots(
             active_pids=blocked_io[:1],
         ),
         _queue("fila-memoria", "Aguardando memoria", "First Fit", waiting_memory, cards),
-        _queue("fila-recursos", "Aguardando recurso", "Discos", waiting_resource, cards),
         _queue("fila-finalizados", "Finalizados", "Concluidos", finished, cards),
         _queue("fila-rejeitados", "Rejeitados", "Invalidos", rejected, cards),
     ]
