@@ -30,7 +30,8 @@ class QueueSnapshot(BaseModel):
 
 class MemoryBlock(BaseModel):
     id: str
-    label: str
+    startMb: int   # endereco de inicio do segmento em MiB
+    sizeMb: int    # tamanho real do segmento em MiB
     occupied: bool
     ownerPid: str | None = None
     color: str | None = None
@@ -45,10 +46,12 @@ class MemorySnapshot(BaseModel):
 class DiskSnapshot(BaseModel):
     id: str
     label: str
-    status: str
-    ownerProcess: ProcessCard | None = None
-    activeProcess: ProcessCard | None = None
-    waitingQueue: list[ProcessCard]
+    # Processo atualmente fazendo I/O neste disco (None se livre).
+    activeIoProcess: ProcessCard | None = None
+    # Processos que ja foram carregados na RAM a partir deste disco.
+    inMemory: list[ProcessCard] = []
+    # Processos que ainda estao so no armazenamento secundario (aguardando RAM).
+    onDiskOnly: list[ProcessCard] = []
 
 
 class EventEntry(BaseModel):
@@ -74,6 +77,6 @@ class ProcessDescriptor(BaseModel):
     priority: int
     memory_mb: int
     cpu_burst_1: int
-    disks_required: int = 0
+    io_disks: list[int] = []
     io_time: int = 0
     cpu_burst_2: int = 0

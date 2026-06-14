@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { EventEntry } from '../types/simulator'
 
 interface EventLogProps {
@@ -5,7 +6,12 @@ interface EventLogProps {
 }
 
 export function EventLog({ events }: EventLogProps) {
-  const sorted = [...events].sort((a, b) => b.time - a.time)
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  // Rola para o evento mais recente sempre que a lista muda.
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [events])
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-md border border-white/10 bg-black/60">
@@ -13,11 +19,11 @@ export function EventLog({ events }: EventLogProps) {
         <p className="text-[0.6rem] uppercase tracking-[0.22em] text-slate-500">log de eventos</p>
       </div>
 
-      <div className="flex flex-col-reverse gap-0.5 overflow-y-auto p-2">
-        {sorted.length === 0 ? (
+      <div className="flex flex-col gap-0.5 overflow-y-auto p-2">
+        {events.length === 0 ? (
           <span className="font-mono text-[0.62rem] text-slate-700">_</span>
         ) : (
-          sorted.map((entry) => (
+          events.map((entry) => (
             <div key={entry.id} className="flex gap-2">
               <span className="shrink-0 font-mono text-[0.6rem] text-slate-600">
                 [{String(entry.time).padStart(3, '0')}]
@@ -28,6 +34,7 @@ export function EventLog({ events }: EventLogProps) {
             </div>
           ))
         )}
+        <div ref={bottomRef} />
       </div>
     </div>
   )

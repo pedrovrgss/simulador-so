@@ -73,18 +73,19 @@ class MemoryManager:
                 return True
         return False
 
-    def used_mib(self) -> int:
+    def used_mib(self, hidden_pids: frozenset[str] = frozenset()) -> int:
         total = 0
         for segment in self.segments:
-            if not segment.is_free():
+            if not segment.is_free() and segment.pid not in hidden_pids:
                 total += segment.size
         return total
 
-    def to_snapshot(self) -> MemorySnapshot:
+    def to_snapshot(self, hidden_pids: frozenset[str] = frozenset()) -> MemorySnapshot:
+        """hidden_pids: display_pids de processos em DMA — reservados mas ainda nao visiveis."""
         return MemorySnapshot(
             totalMb=self.total_mib,
-            usedMb=self.used_mib(),
-            blocks=self._build_view_blocks(),
+            usedMb=self.used_mib(hidden_pids=hidden_pids),
+            blocks=self._build_view_blocks(hidden_pids=hidden_pids),
         )
 
     def _merge_free_segments(self) -> None:
@@ -98,34 +99,31 @@ class MemoryManager:
 
         self.segments = merged
 
-    def _build_view_blocks(self) -> list[MemoryBlock]:
-        # A simulacao usa tamanhos reais em MiB, mas a tela mostra 32 faixas.
-        block_size = self.total_mib // MEMORY_VIEW_BLOCKS
-        blocks: list[MemoryBlock] = []
+    def _build_view_blocks(self, hidden_pids: frozenset[str] = frozenset()) -> list[MemoryBlock]:
+        # Segmentos em hidden_pids sao tratados como livres visualmente (DMA em curso).
+        # Segmentos livres adjacentes sao mesclados para nao fragmentar o display.
+        visual: list[dict] = []
+        for seg in self.segments:
+            show_free = seg.is_free() or seg.pid in hidden_pids
+            if visual and visual[-1]["free"] and show_free:
+                visual[-1]["size"] += seg.size  # mescla com o livre anterior
+            else:
+                visual.append({
+                    "start": seg.start,
+                    "size": seg.size,
+                    "free": show_free,
+                    "pid": None if show_free else seg.pid,
+                    "color": None if show_free else seg.color,
+                })
 
-        for index in range(MEMORY_VIEW_BLOCKS):
-            start = index * block_size
-            end = start + block_size
-            owner = self._owner_for_range(start, end)
-
-            blocks.append(
-                MemoryBlock(
-                    id=f"b{index + 1:02d}",
-                    label=f"{index + 1:02d}",
-                    occupied=owner is not None,
-                    ownerPid=owner.pid if owner else None,
-                    color=owner.color if owner else None,
-                )
+        return [
+            MemoryBlock(
+                id=f"seg-{i}",
+                startMb=v["start"],
+                sizeMb=v["size"],
+                occupied=not v["free"],
+                ownerPid=v["pid"],
+                color=v["color"],
             )
-
-        return blocks
-
-    def _owner_for_range(self, start: int, end: int) -> MemorySegment | None:
-        for segment in self.segments:
-            if segment.is_free():
-                continue
-            # Se o segmento ocupado cruza a faixa visual, ela aparece ocupada.
-            if segment.start < end and segment.end() > start:
-                return segment
-
-        return None
+            for i, v in enumerate(visual)
+        ]

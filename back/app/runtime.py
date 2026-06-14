@@ -29,7 +29,7 @@ class ProcessRuntime:
     color: str
     priority: int
     memory_mb: int
-    disks_required: int
+    io_disks: list[int]
     is_real_time: bool
     state: ProcessState = "NOVO"
     queue_level: int = 0
@@ -37,6 +37,9 @@ class ProcessRuntime:
     cpu1_remaining: int = 0
     io_remaining: int = 0
     cpu2_remaining: int = 0
+    # Disco onde o processo reside na memoria secundaria (para exibicao no painel).
+    # Atribuido no momento da chegada; nao muda durante a simulacao.
+    home_disk_id: int = 1
 
     def current_cpu_remaining(self) -> int:
         # A tela e a execucao precisam saber qual fase de CPU esta ativa agora.

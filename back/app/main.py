@@ -75,6 +75,11 @@ def advance_tick() -> SimulatorSnapshot:
     return engine.tick()
 
 
+@app.post("/api/step-back", response_model=SimulatorSnapshot)
+def step_back() -> SimulatorSnapshot:
+    return engine.step_back()
+
+
 @app.post("/api/reset", response_model=SimulatorSnapshot)
 def reset_simulation() -> SimulatorSnapshot:
     try:

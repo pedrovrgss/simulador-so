@@ -6,12 +6,27 @@ from .sample_data import PROCESS_COLORS
 from .scheduler import nome_fila
 
 # Entrada dos processos no sistema.
-# Primeiro tentamos memoria, depois disco, e por ultimo fila de pronto.
+# Fluxo de admissao: disco primeiro, memoria depois.
+# Os processos existem em armazenamento secundario e chegam ao sistema
+# conforme seus tempos de chegada, sendo carregados na RAM via DMA.
 
 
-def criar_processos(sim, parsed: ParsedInput) -> None:
-    for index, descriptor in enumerate(parsed.processes):
-        # ProcessRuntime e a copia "viva" do processo durante a simulacao.
+def preparar_processos(sim, parsed: ParsedInput) -> None:
+    """Registra os processos com seus tempos de chegada sem admiti-los ainda."""
+    sim.pending_processes = list(enumerate(parsed.processes))
+
+
+def admitir_chegadas(sim) -> None:
+    """Admite os processos cujo tempo de chegada e igual ao clock atual."""
+    chegaram = [
+        (index, descriptor)
+        for index, descriptor in sim.pending_processes
+        if descriptor.arrival_time == sim.clock
+    ]
+
+    for index, descriptor in chegaram:
+        sim.pending_processes.remove((index, descriptor))
+
         process = ProcessRuntime(
             descriptor=descriptor,
             pid=descriptor.pid,
@@ -19,24 +34,27 @@ def criar_processos(sim, parsed: ParsedInput) -> None:
             color=PROCESS_COLORS[index % len(PROCESS_COLORS)],
             priority=descriptor.priority,
             memory_mb=descriptor.memory_mb,
-            disks_required=descriptor.disks_required,
+            io_disks=descriptor.io_disks,
             is_real_time=descriptor.priority == 0,
             cpu1_remaining=descriptor.cpu_burst_1,
             io_remaining=descriptor.io_time,
             cpu2_remaining=descriptor.cpu_burst_2,
+            # Todos os processos residem em algum disco secundario.
+            # Distribuicao round-robin entre os 4 drives para exibicao.
+            home_disk_id=(index % 4) + 1,
         )
 
-        if descriptor.io_time == 0 and descriptor.priority == 1:
-            # Usuario sem I/O nao passa pela fase de disco; ele e CPU-bound.
+        # Processos sem I/O (TR-nnn) usam a fase cpu_bound independente de prioridade.
+        # Processos com I/O (IO-nnn) ficam com o default fase_cpu_1 e avancam para fase_cpu_2.
+        if descriptor.io_time == 0:
             process.phase = "cpu_bound"
 
         sim.processes[process.pid] = process
-        sim.log_event(f"{process.display_pid}: processo criado.")
+        sim.log_event(f"{process.display_pid}: chegou ao sistema (Disco {process.home_disk_id}).")
         admitir_processo(sim, process)
 
 
 def admitir_processo(sim, process: ProcessRuntime) -> None:
-    # Processo maior que a memoria total nunca vai conseguir entrar.
     if process.memory_mb > MEMORIA_TOTAL_MIB:
         sim.change_state(process, "REJEITADO")
         sim.rejected.append(process.pid)
@@ -45,56 +63,46 @@ def admitir_processo(sim, process: ProcessRuntime) -> None:
         )
         return
 
-    # Se nao couber agora, fica esperando ate outro processo liberar memoria.
+    _carregar_na_memoria(sim, process)
+
+
+def _carregar_na_memoria(sim, process: ProcessRuntime) -> None:
     if not sim.memory.allocate(process.display_pid, process.memory_mb, process.color):
         sim.change_state(process, "ESPERANDO_MEMORIA")
         sim.waiting_memory.append(process.pid)
         sim.log_event(f"{process.display_pid}: aguardando memoria livre.")
         return
 
+    _iniciar_dma_memoria(sim, process)
+
+
+def _iniciar_dma_memoria(sim, process: ProcessRuntime) -> None:
+    """Memoria alocada: inicia transferencia DMA disco->RAM por 1 tick."""
+    sim.change_state(process, "CARREGANDO_MEMORIA")
+    sim.loading_memory.append(process.pid)
     sim.log_event(
-        f"{process.display_pid}: entrou na memoria ({process.memory_mb} MiB)."
+        f"{process.display_pid}: iniciando DMA disco->RAM ({process.memory_mb} MiB)."
     )
-    reservar_disco_ou_esperar(sim, process)
 
 
-def reservar_disco_ou_esperar(sim, process: ProcessRuntime) -> None:
-    # A reserva acontece antes da fila de pronto para evitar iniciar sem recurso.
-    if sim.disks.reserve(process.pid, process.disks_required):
-        if process.disks_required > 0:
-            sim.log_event(
-                f"{process.display_pid}: reservou {process.disks_required} disco(s)."
-            )
+def avancar_carregamento_memoria(sim) -> None:
+    """Move para a fila pronto os processos cuja transferencia DMA foi concluida."""
+    for pid in list(sim.loading_memory):
+        process = sim.processes[pid]
+        sim.loading_memory.remove(pid)
+        sim.log_event(f"{process.display_pid}: DMA concluido; pronto para executar.")
         colocar_na_fila_pronto(sim, process)
-        return
-
-    sim.change_state(process, "ESPERANDO_RECURSO")
-    if process.pid not in sim.waiting_resource:
-        sim.waiting_resource.append(process.pid)
-    sim.log_event(f"{process.display_pid}: aguardando disco livre.")
 
 
 def tentar_processos_em_espera(sim) -> None:
-    # Depois que algum recurso libera, tentamos acordar quem ficou esperando.
     for pid in list(sim.waiting_memory):
         process = sim.processes[pid]
         if sim.memory.allocate(process.display_pid, process.memory_mb, process.color):
             sim.waiting_memory.remove(pid)
-            sim.log_event(
-                f"{process.display_pid}: conseguiu memoria e saiu da espera."
-            )
-            reservar_disco_ou_esperar(sim, process)
-
-    for pid in list(sim.waiting_resource):
-        process = sim.processes[pid]
-        if sim.disks.reserve(process.pid, process.disks_required):
-            sim.waiting_resource.remove(pid)
-            sim.log_event(f"{process.display_pid}: conseguiu disco livre.")
-            colocar_na_fila_pronto(sim, process)
+            _iniciar_dma_memoria(sim, process)
 
 
 def colocar_na_fila_pronto(sim, process: ProcessRuntime) -> None:
-    # Depois que tem memoria e recurso, o escalonador pode escolher o processo.
     sim.change_state(process, "PRONTO")
     queue_name = sim.scheduler.add_ready(
         process.pid,
@@ -105,14 +113,14 @@ def colocar_na_fila_pronto(sim, process: ProcessRuntime) -> None:
 
 
 def montar_pid_visual(descriptor: ProcessDescriptor) -> str:
-    # Mantem IDs ja formatados, mas transforma "1" em "TR-01" ou "U-01".
     raw_pid = descriptor.pid
     normalized = raw_pid.upper()
 
-    if normalized.startswith("TR-") or normalized.startswith("U-"):
+    if normalized.startswith("TR-") or normalized.startswith("IO-"):
         return raw_pid
 
-    prefix = "TR" if descriptor.priority == 0 else "U"
+    # TR = tempo real (priority 0, FCFS); IO = usuario (priority 1, feedback).
+    prefix = "TR" if descriptor.priority == 0 else "IO"
     if raw_pid.isdigit():
         return f"{prefix}-{int(raw_pid):02d}"
 

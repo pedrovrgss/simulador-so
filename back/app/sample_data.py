@@ -1,19 +1,21 @@
 # Entrada padrao para mostrar as partes principais na apresentacao:
 # tempo real, usuario, I/O, memoria e disputa por disco.
+# Formato: [id, prioridade, chegada, cpu1, io, cpu2, ram, discos]
+# Campo "discos": IDs dos drives usados na fase de I/O (ex: "1 2" = Disco 1 e Disco 2).
 
-DEFAULT_INPUT = """# [id, prioridade, cpu1, io, cpu2, ram, discos]
-[1, 0, 5, 0, 0, 512, 0]
-[2, 1, 6, 3, 4, 1024, 1]
-[3, 1, 10, 0, 0, 2048, 0]
-[4, 1, 3, 4, 3, 4096, 1]
-[5, 0, 4, 0, 0, 256, 0]
-[6, 1, 8, 2, 2, 8192, 2]
-[7, 1, 15, 0, 0, 1200, 0]
-[8, 1, 2, 6, 2, 16384, 1]
-[9, 1, 5, 3, 5, 2048, 1]
-[10, 1, 12, 0, 0, 4096, 0]
-[11, 1, 4, 2, 4, 1024, 1]
-[12, 1, 7, 0, 0, 2048, 0]
+DEFAULT_INPUT = """# [id, prioridade, chegada, cpu1, io, cpu2, ram, discos]
+[1, 0, 1, 5, 0, 0, 512, 0]
+[2, 1, 2, 6, 3, 4, 1024, 1]
+[3, 1, 3, 10, 0, 0, 2048, 0]
+[4, 1, 4, 3, 4, 3, 4096, 2]
+[5, 0, 5, 4, 0, 0, 256, 0]
+[6, 1, 6, 8, 2, 2, 8192, 1 2]
+[7, 1, 7, 15, 0, 0, 1200, 0]
+[8, 1, 8, 2, 6, 2, 16384, 3]
+[9, 1, 9, 5, 3, 5, 2048, 1]
+[10, 1, 10, 12, 0, 0, 4096, 0]
+[11, 1, 11, 4, 2, 4, 1024, 4]
+[12, 1, 12, 7, 0, 0, 2048, 0]
 """
 
 PROCESS_COLORS = [

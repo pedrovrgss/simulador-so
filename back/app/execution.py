@@ -38,6 +38,7 @@ def avancar_io(sim) -> None:
             continue
 
         sim.blocked_io.remove(pid)
+        sim.disks.release_io(pid)
         # Depois do I/O, a professora pediu para voltar na primeira fila.
         process.phase = "fase_cpu_2"
         process.queue_level = 0
@@ -45,6 +46,9 @@ def avancar_io(sim) -> None:
             f"{process.display_pid}: terminou I/O e voltou para a fila 1."
         )
         colocar_na_fila_pronto(sim, process)
+
+    # Verifica se algum processo bloqueado por disco pode agora iniciar o I/O.
+    _tentar_bloqueados_disco(sim)
 
 
 def avancar_cpus(sim) -> None:
@@ -71,7 +75,7 @@ def tratar_fim_da_fase_cpu(
     process: ProcessRuntime,
 ) -> None:
     # TR e processo sem I/O terminam direto ao acabar a CPU atual.
-    # Usuario com I/O sai da CPU e vai para a fila de bloqueados.
+    # Usuario com I/O sai da CPU e vai para a fila de bloqueados (com ou sem disco livre).
     if process.is_real_time or process.phase == "fase_cpu_2" or process.io_remaining == 0:
         finalizar_processo(sim, process)
         cpu.clear()
@@ -79,11 +83,24 @@ def tratar_fim_da_fase_cpu(
 
     cpu.clear()
     process.phase = "fase_io"
-    sim.change_state(process, "BLOQUEADO_IO")
-    sim.blocked_io.append(process.pid)
-    sim.log_event(
-        f"{process.display_pid}: saiu da CPU e iniciou I/O por {process.io_remaining} u.t."
-    )
+
+    if sim.disks.can_acquire(process.io_disks):
+        # Drives livres: inicia I/O imediatamente.
+        sim.disks.acquire_io(process.pid, process.io_disks)
+        sim.change_state(process, "BLOQUEADO_IO")
+        sim.blocked_io.append(process.pid)
+        disks_str = _format_disks(process.io_disks)
+        sim.log_event(
+            f"{process.display_pid}: saiu da CPU e iniciou I/O{disks_str} por {process.io_remaining} u.t."
+        )
+    else:
+        # Drives ocupados: aguarda na fila de bloqueados por disco.
+        sim.change_state(process, "ESPERANDO_DISCO")
+        sim.blocked_disk.append(process.pid)
+        disks_str = _format_disks(process.io_disks)
+        sim.log_event(
+            f"{process.display_pid}: saiu da CPU; aguardando disco{disks_str} livre."
+        )
 
 
 def preemptar_usuario(
@@ -116,14 +133,39 @@ def preemptar_usuario(
 
 
 def finalizar_processo(sim, process: ProcessRuntime) -> None:
-    # Finalizar tambem libera memoria e discos para processos que estavam esperando.
+    # Finalizar libera memoria e drives de I/O (caso o processo tenha terminado durante I/O).
     sim.memory.free(process.display_pid)
-    sim.disks.release(process.pid)
+    sim.disks.release_io(process.pid)
     sim.change_state(process, "FINALIZADO")
 
     if process.pid not in sim.finished:
         sim.finished.append(process.pid)
 
     sim.log_event(
-        f"{process.display_pid}: finalizado. Memoria e discos liberados."
+        f"{process.display_pid}: finalizado. Memoria liberada."
     )
+
+    # Liberar drives pode desbloquear processos aguardando disco.
+    _tentar_bloqueados_disco(sim)
+
+
+def _tentar_bloqueados_disco(sim) -> None:
+    """Tenta iniciar I/O nos processos que estavam esperando drives livres."""
+    for pid in list(sim.blocked_disk):
+        process = sim.processes[pid]
+        if sim.disks.can_acquire(process.io_disks):
+            sim.disks.acquire_io(pid, process.io_disks)
+            sim.blocked_disk.remove(pid)
+            sim.blocked_io.append(pid)
+            sim.change_state(process, "BLOQUEADO_IO")
+            disks_str = _format_disks(process.io_disks)
+            sim.log_event(
+                f"{process.display_pid}: disco{disks_str} livre; iniciou I/O por {process.io_remaining} u.t."
+            )
+
+
+def _format_disks(disk_ids: list[int]) -> str:
+    if not disk_ids:
+        return ""
+    ids = " e ".join(str(d) for d in disk_ids)
+    return f" (Disco {ids})"

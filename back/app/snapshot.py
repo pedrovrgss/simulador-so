@@ -1,5 +1,5 @@
 from .memory import MemoryManager
-from .models import CpuSlot, EventEntry, ProcessCard, QueueSnapshot, SimulatorSnapshot
+from .models import CpuSlot, DiskSnapshot, EventEntry, ProcessCard, QueueSnapshot, SimulatorSnapshot
 from .resources import DiskManager
 from .runtime import CpuRuntime, ProcessRuntime
 from .scheduler import Scheduler
@@ -17,14 +17,21 @@ def build_snapshot(
     memory: MemoryManager,
     disks: DiskManager,
     blocked_io: list[str],
+    blocked_disk: list[str],
     waiting_memory: list[str],
-    waiting_resource: list[str],
+    loading_memory: list[str],
     finished: list[str],
     rejected: list[str],
     events: list[EventEntry],
 ) -> SimulatorSnapshot:
-    # Primeiro criamos um card por processo para reaproveitar em CPU, filas e disco.
-    cards = _process_cards(processes, disks)
+    cards = _process_cards(processes, blocked_disk)
+
+    # Processos em loading_memory tiveram RAM reservada mas o DMA ainda nao concluiu.
+    loading_display_pids = frozenset(
+        processes[pid].display_pid
+        for pid in loading_memory
+        if pid in processes
+    )
 
     return SimulatorSnapshot(
         clock=clock,
@@ -33,16 +40,21 @@ def build_snapshot(
             scheduler=scheduler,
             cards=cards,
             blocked_io=blocked_io,
+            blocked_disk=blocked_disk,
             waiting_memory=waiting_memory,
-            waiting_resource=waiting_resource,
+            loading_memory=loading_memory,
             finished=finished,
             rejected=rejected,
         ),
-        memory=memory.to_snapshot(),
-        disks=disks.to_snapshot(
-            process_cards=cards,
-            active_io_pids=blocked_io,
-            waiting_resource_pids=waiting_resource,
+        memory=memory.to_snapshot(hidden_pids=loading_display_pids),
+        disks=_disk_snapshots(
+            processes=processes,
+            cards=cards,
+            disks=disks,
+            waiting_memory=waiting_memory,
+            loading_memory=loading_memory,
+            finished=finished,
+            rejected=rejected,
         ),
         eventLog=events[-200:],
     )
@@ -50,18 +62,20 @@ def build_snapshot(
 
 def _process_cards(
     processes: dict[str, ProcessRuntime],
-    disks: DiskManager,
+    blocked_disk: list[str],
 ) -> dict[str, ProcessCard]:
+    blocked_disk_set = set(blocked_disk)
     cards: dict[str, ProcessCard] = {}
 
     for pid, process in processes.items():
-        # O card e a versao resumida do processo que o frontend consegue desenhar.
         cards[pid] = ProcessCard(
             pid=process.display_pid,
             name=process.descriptor.name,
             color=process.color,
-            classLabel="Tempo real" if process.is_real_time else "Usuario",
-            queueLabel=_queue_label(process, disks),
+            classLabel="Tempo real" if process.is_real_time else (
+                "CPU Bound" if process.descriptor.io_time == 0 else "I/O Bound"
+            ),
+            queueLabel=_queue_label(process, blocked_disk_set),
             memoryMb=process.memory_mb,
         )
 
@@ -77,7 +91,6 @@ def _cpu_snapshots(
 
     for cpu in cpus:
         process = processes[cpu.pid] if cpu.pid else None
-        # Se a CPU estiver livre, enviamos None para o frontend mostrar "sem processo".
         snapshots.append(
             CpuSlot(
                 id=f"cpu-{cpu.id}",
@@ -93,19 +106,75 @@ def _cpu_snapshots(
     return snapshots
 
 
+def _disk_snapshots(
+    *,
+    processes: dict[str, ProcessRuntime],
+    cards: dict[str, ProcessCard],
+    disks: DiskManager,
+    waiting_memory: list[str],
+    loading_memory: list[str],
+    finished: list[str],
+    rejected: list[str],
+) -> list[DiskSnapshot]:
+    inactive = set(finished) | set(rejected)
+    # "somente em disco": aguardando RAM ou em transferencia DMA (RAM reservada, ainda nao disponivel).
+    on_disk_only = set(waiting_memory) | set(loading_memory)
+
+    by_disk: dict[int, list[str]] = {i: [] for i in range(1, 5)}
+    for pid, process in processes.items():
+        if pid not in inactive:
+            by_disk[process.home_disk_id].append(pid)
+
+    snapshots: list[DiskSnapshot] = []
+    for disk_id in range(1, 5):
+        active_io_pid = disks.active_io_pid(disk_id)
+        active_card = cards.get(active_io_pid) if active_io_pid else None
+
+        in_memory: list[ProcessCard] = []
+        on_disk: list[ProcessCard] = []
+
+        for pid in by_disk[disk_id]:
+            card = cards.get(pid)
+            if card is None:
+                continue
+            if pid in on_disk_only:
+                on_disk.append(card)
+            else:
+                in_memory.append(card)
+
+        snapshots.append(DiskSnapshot(
+            id=f"disk-{disk_id}",
+            label=f"Disco {disk_id}",
+            activeIoProcess=active_card,
+            inMemory=in_memory,
+            onDiskOnly=on_disk,
+        ))
+
+    return snapshots
+
+
 def _queue_snapshots(
     *,
     scheduler: Scheduler,
     cards: dict[str, ProcessCard],
     blocked_io: list[str],
+    blocked_disk: list[str],
     waiting_memory: list[str],
-    waiting_resource: list[str],
+    loading_memory: list[str],
     finished: list[str],
     rejected: list[str],
 ) -> list[QueueSnapshot]:
     queues = scheduler.queue_items()
 
-    # Os IDs das filas precisam bater com os nomes usados nos componentes do front.
+    # Processos aguardando carga: sem RAM ainda.
+    aguardando_carga = list(waiting_memory)
+    # loading_memory: RAM alocada, DMA disco->RAM em curso neste tick.
+    fila_memoria_pids = loading_memory + aguardando_carga
+
+    # Fila de I/O: processos aguardando disco primeiro, depois os em transferencia ativa.
+    # Os em blocked_io tem drives adquiridos; os em blocked_disk ainda aguardam o drive.
+    fila_io_pids = blocked_disk + blocked_io
+
     return [
         _queue("fila-tr", "FCFS", "FCFS", queues["FCFS"], cards),
         _queue("fila-f1", "Fila de feedback 1", "Nivel 1", queues["U0"], cards),
@@ -115,12 +184,18 @@ def _queue_snapshots(
             "fila-dma",
             "Aguardando I/O",
             "DMA",
-            blocked_io,
+            fila_io_pids,
             cards,
-            active_pids=blocked_io[:1],
+            active_pids=blocked_io,
         ),
-        _queue("fila-memoria", "Aguardando memoria", "First Fit", waiting_memory, cards),
-        _queue("fila-recursos", "Aguardando recurso", "Discos", waiting_resource, cards),
+        _queue(
+            "fila-memoria",
+            "Aguardando memoria",
+            "Carga DMA",
+            fila_memoria_pids,
+            cards,
+            active_pids=loading_memory[:1],
+        ),
         _queue("fila-finalizados", "Finalizados", "Concluidos", finished, cards),
         _queue("fila-rejeitados", "Rejeitados", "Invalidos", rejected, cards),
     ]
@@ -136,11 +211,7 @@ def _queue(
 ) -> QueueSnapshot:
     active_process_pids = None
     if active_pids is not None:
-        # Na fila de I/O, o primeiro bloqueado aparece como processo ativo.
-        active_process_pids = []
-        for pid in active_pids:
-            if pid in cards:
-                active_process_pids.append(cards[pid].pid)
+        active_process_pids = [cards[pid].pid for pid in active_pids if pid in cards]
 
     return QueueSnapshot(
         id=queue_id,
@@ -151,13 +222,15 @@ def _queue(
     )
 
 
-def _queue_label(process: ProcessRuntime, disks: DiskManager) -> str:
-    # Label pequeno que aparece dentro do card do processo na tela.
+def _queue_label(process: ProcessRuntime, blocked_disk_set: set[str]) -> str:
     if process.state == "FINALIZADO":
         return "Finalizado"
     if process.state == "BLOQUEADO_IO":
-        disk_ids = disks.owners_disks(process.pid)
-        return f"Disco {disk_ids[0]}" if disk_ids else "I/O"
+        if process.io_disks:
+            return "Disco " + " e ".join(str(d) for d in process.io_disks)
+        return "I/O"
+    if process.pid in blocked_disk_set:
+        return "Aguardando disco"
     if process.is_real_time:
         return "FCFS"
     return f"Feedback {process.queue_level + 1}"
@@ -167,10 +240,4 @@ def _cards_from_pids(
     pids: list[str],
     cards: dict[str, ProcessCard],
 ) -> list[ProcessCard]:
-    result: list[ProcessCard] = []
-
-    for pid in pids:
-        if pid in cards:
-            result.append(cards[pid])
-
-    return result
+    return [cards[pid] for pid in pids if pid in cards]

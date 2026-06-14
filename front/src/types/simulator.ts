@@ -34,7 +34,8 @@ export interface QueueSnapshot {
 
 export interface MemoryBlock {
   id: string
-  label: string
+  startMb: number   // endereco de inicio em MiB
+  sizeMb: number    // tamanho real em MiB
   occupied: boolean
   ownerPid: string | null
   color: string | null
@@ -49,10 +50,12 @@ export interface MemorySnapshot {
 export interface DiskSnapshot {
   id: string
   label: string
-  status: 'livre' | 'reservado' | 'io'
-  ownerProcess: ProcessCard | null
-  activeProcess: ProcessCard | null
-  waitingQueue: ProcessCard[]
+  // Processo atualmente fazendo I/O neste drive (null se livre).
+  activeIoProcess: ProcessCard | null
+  // Processos que foram carregados na RAM a partir deste disco.
+  inMemory: ProcessCard[]
+  // Processos que ainda estao so no armazenamento secundario (aguardando RAM).
+  onDiskOnly: ProcessCard[]
 }
 
 export interface EventEntry {

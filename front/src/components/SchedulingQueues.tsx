@@ -1,5 +1,8 @@
 import type { QueueSnapshot, ProcessCard } from '../types/simulator'
 
+// filas rastreadas no backend mas nao exibidas na tela.
+const HIDDEN_QUEUE_IDS = new Set(['fila-recursos', 'fila-rejeitados'])
+
 function formatMb(mb: number): string {
   return mb >= 1024 ? `${mb / 1024}GB` : `${mb}MB`
 }
@@ -37,9 +40,11 @@ function Chips({ processes }: { processes: ProcessCard[] }) {
   )
 }
 
+// Fila de I/O com DMA ativo: mostra caixa escura com processos em execucao.
+// Multiplos processos podem estar ativos simultaneamente (drives diferentes).
 function DmaQueue({ queue }: { queue: QueueSnapshot }) {
   const activeSet = new Set(queue.activeProcessPids ?? [])
-  const running = queue.processes.find(p => activeSet.has(p.pid)) ?? null
+  const running = queue.processes.filter(p => activeSet.has(p.pid))
   const waiting = queue.processes.filter(p => !activeSet.has(p.pid))
 
   return (
@@ -47,10 +52,10 @@ function DmaQueue({ queue }: { queue: QueueSnapshot }) {
       <p className="text-[0.6rem] uppercase tracking-[0.22em] text-slate-500">{queue.title}</p>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <div className="flex shrink-0 items-center gap-2 rounded-sm border border-white/8 bg-black/30 px-2.5 py-1.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 rounded-sm border border-white/8 bg-black/30 px-2.5 py-1.5">
           <span className="text-[0.55rem] uppercase tracking-[0.18em] text-slate-600">DMA</span>
-          {running
-            ? <ProcessChip process={running} />
+          {running.length > 0
+            ? running.map(p => <ProcessChip key={p.pid} process={p} />)
             : <EmptySlot />
           }
         </div>
@@ -62,6 +67,7 @@ function DmaQueue({ queue }: { queue: QueueSnapshot }) {
 }
 
 function QueueRow({ queue }: { queue: QueueSnapshot }) {
+  // Qualquer fila com activeProcessPids usa o componente DMA (I/O ou carga de memoria).
   if (Array.isArray(queue.activeProcessPids)) {
     return <DmaQueue queue={queue} />
   }
@@ -102,8 +108,9 @@ interface SchedulingQueuesProps {
 }
 
 export function SchedulingQueues({ queues }: SchedulingQueuesProps) {
-  const feedbackQueues = queues.filter(q => q.title.toLowerCase().includes('feedback'))
-  const otherQueues = queues.filter(q => !q.title.toLowerCase().includes('feedback'))
+  const visibleQueues = queues.filter(q => !HIDDEN_QUEUE_IDS.has(q.id))
+  const feedbackQueues = visibleQueues.filter(q => q.title.toLowerCase().includes('feedback'))
+  const otherQueues = visibleQueues.filter(q => !q.title.toLowerCase().includes('feedback'))
 
   const before = otherQueues.slice(0, 1)
   const after = otherQueues.slice(1)
