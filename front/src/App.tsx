@@ -86,6 +86,13 @@ function App() {
 
   return (
     <main aria-label="Tela inicial do simulador" className="min-h-screen px-4 py-5">
+      {snapshot.warnings.length > 0 && (
+        <div className="mx-auto mb-4 w-full max-w-[94rem] rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3">
+          {snapshot.warnings.map((w, i) => (
+            <p key={i} className="font-mono text-[0.72rem] text-amber-300">{w}</p>
+          ))}
+        </div>
+      )}
       <div className="mx-auto flex w-full max-w-[94rem] flex-col items-center gap-5">
         <SimulationHeader
           elapsedTime={snapshot.clock}

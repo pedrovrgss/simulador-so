@@ -71,4 +71,5 @@ export interface SimulatorSnapshot {
   memory: MemorySnapshot
   disks: DiskSnapshot[]
   eventLog: EventEntry[]
+  warnings: string[]
 }

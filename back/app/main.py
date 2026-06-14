@@ -1,10 +1,16 @@
+import pathlib
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .models import ProcessDescriptor, SimulatorSnapshot
 from .parser import DescriptorFormatError, parse_process_descriptors
-from .simulator import DEFAULT_INPUT, SimulatorEngine
+from .simulator import SimulatorEngine
+
+# Arquivo de entrada esperado pela professora.
+# Localizado em examples/entrada.txt na raiz do projeto.
+_ENTRADA_FILE = pathlib.Path(__file__).resolve().parent.parent.parent / "examples" / "entrada.txt"
 
 # Rotas que o front usa para carregar, avancar e reiniciar a simulacao.
 # As regras do trabalho ficam concentradas no SimulatorEngine.
@@ -43,6 +49,17 @@ class LoadResponse(BaseModel):
 
 
 engine = SimulatorEngine()
+
+if _ENTRADA_FILE.exists():
+    try:
+        engine.load(_ENTRADA_FILE.read_text(encoding="utf-8"))
+    except DescriptorFormatError as _exc:
+        engine.warnings = [f"examples/entrada.txt contém erro: {_exc}"]
+else:
+    engine.warnings = [
+        f"Arquivo examples/entrada.txt não encontrado. "
+        "Adicione o arquivo na pasta examples/ e reinicie o servidor."
+    ]
 
 
 @app.get("/health")

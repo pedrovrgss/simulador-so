@@ -131,6 +131,7 @@ class SimulatorEngine:
             finished=self.finished,
             rejected=self.rejected,
             events=self.events,
+            warnings=self.warnings,
         )
 
     def change_state(self, process: ProcessRuntime, new_state: ProcessState) -> None:

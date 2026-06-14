@@ -247,6 +247,7 @@ export const fallbackSnapshot: SimulatorSnapshot = {
       onDiskOnly: [],
     },
   ],
+  warnings: [],
   eventLog: [
     { id: 'e1', time: 14, message: 'TR-01: criado e alocado na memoria principal.' },
     { id: 'e2', time: 15, message: 'IO-07: entrou na CPU 2 a partir da fila de feedback 1.' },

@@ -67,6 +67,7 @@ class SimulatorSnapshot(BaseModel):
     memory: MemorySnapshot
     disks: list[DiskSnapshot]
     eventLog: list[EventEntry]
+    warnings: list[str] = []
 
 
 class ProcessDescriptor(BaseModel):

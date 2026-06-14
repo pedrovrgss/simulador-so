@@ -86,12 +86,13 @@ def _iniciar_dma_memoria(sim, process: ProcessRuntime) -> None:
 
 
 def avancar_carregamento_memoria(sim) -> None:
-    """Move para a fila pronto os processos cuja transferencia DMA foi concluida."""
-    for pid in list(sim.loading_memory):
-        process = sim.processes[pid]
-        sim.loading_memory.remove(pid)
-        sim.log_event(f"{process.display_pid}: DMA concluido; pronto para executar.")
-        colocar_na_fila_pronto(sim, process)
+    """Conclui a transferencia DMA do processo na cabeca da fila (um por tick)."""
+    if not sim.loading_memory:
+        return
+    pid = sim.loading_memory.pop(0)
+    process = sim.processes[pid]
+    sim.log_event(f"{process.display_pid}: DMA concluido; pronto para executar.")
+    colocar_na_fila_pronto(sim, process)
 
 
 def tentar_processos_em_espera(sim) -> None:

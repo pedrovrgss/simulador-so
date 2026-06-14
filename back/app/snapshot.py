@@ -23,6 +23,7 @@ def build_snapshot(
     finished: list[str],
     rejected: list[str],
     events: list[EventEntry],
+    warnings: list[str],
 ) -> SimulatorSnapshot:
     cards = _process_cards(processes, blocked_disk)
 
@@ -57,6 +58,7 @@ def build_snapshot(
             rejected=rejected,
         ),
         eventLog=events[-200:],
+        warnings=warnings,
     )
 
 
