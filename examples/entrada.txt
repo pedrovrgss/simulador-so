@@ -1,0 +1,9 @@
+# Formato: [id, prioridade, chegada, cpu1, io, cpu2, ram, discos]
+# prioridade: 0 = tempo real (FCFS), 1 = usuario (feedback)
+# Cenario: poucos processos, facil de acompanhar passo a passo
+
+[1, 0, 1, 5, 0, 0, 512, 0]
+[2, 1, 2, 4, 3, 2, 1024, 1]
+[3, 1, 4, 6, 4, 3, 2048, 2]
+[4, 0, 7, 3, 0, 0, 256, 0]
+[5, 1, 9, 2, 5, 1, 4096, 3]

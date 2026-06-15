@@ -1,0 +1,13 @@
+# Formato: [id, prioridade, chegada, cpu1, io, cpu2, ram, discos]
+# prioridade: 0 = tempo real (FCFS), 1 = usuario (feedback)
+# Cenario: processos que usam 2 discos simultaneamente na fase de I/O
+# Mostra aquisicao atomica de multiplos drives e espera quando um esta ocupado
+
+[1, 1, 1, 4, 3, 2, 1024, 1 2]
+[2, 1, 2, 3, 4, 3, 2048, 3 4]
+[3, 1, 3, 5, 2, 4, 4096, 1 3]
+[4, 1, 5, 2, 5, 2, 1024, 2 4]
+[5, 0, 7, 6, 0, 0, 512, 0]
+[6, 1, 8, 3, 3, 3, 2048, 1 2]
+[7, 1, 10, 4, 4, 2, 1024, 3 4]
+[8, 0, 12, 4, 0, 0, 256, 0]

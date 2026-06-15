@@ -1,0 +1,15 @@
+# Formato: [id, prioridade, chegada, cpu1, io, cpu2, ram, discos]
+# prioridade: 0 = tempo real (FCFS), 1 = usuario (feedback)
+# Cenario: muitos processos de tempo real dominando as CPUs via FCFS
+# Processos de usuario ficam aguardando enquanto TR ocupam as CPUs
+
+[1, 0, 1, 5, 0, 0, 512, 0]
+[2, 0, 2, 8, 0, 0, 256, 0]
+[3, 0, 3, 3, 0, 0, 512, 0]
+[4, 0, 4, 6, 0, 0, 512, 0]
+[5, 1, 5, 4, 3, 2, 2048, 1]
+[6, 0, 6, 10, 0, 0, 256, 0]
+[7, 1, 7, 3, 5, 3, 1024, 2]
+[8, 0, 8, 4, 0, 0, 512, 0]
+[9, 1, 10, 5, 2, 4, 2048, 3]
+[10, 0, 12, 7, 0, 0, 512, 0]

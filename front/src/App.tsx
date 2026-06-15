@@ -6,113 +6,99 @@ import { fallbackSnapshot } from './data/fallbackSnapshot'
 import { SchedulingQueues } from './components/SchedulingQueues'
 import { EventLog } from './components/EventLog'
 import { DisksPanel } from './components/DisksPanel'
-import type { ProcessorInfo } from './types/processor'
+import type { SimulatorSnapshot } from './types/simulator'
 
 const SPEED_STEPS = [1, 2, 4, 8]
-const INITIAL_TIME = 0
 const INITIAL_SPEED = 1
+const API_BASE_URL = 'http://localhost:8000/api'
 
-const CPU_PREVIEW: Array<ProcessorInfo & { accentColor: string }> = [
-  {
-    id: 'cpu-1',
-    label: 'CPU 1',
-    accentColor: '#ff6b57',
-    status: 'executando',
-    runningProcess: {
-      id: 'TR-01' as `P${number}`,
-      phase: 'fase_cpu_1',
-      remainingCycles: 4,
-      totalCycles: 10,
-    },
-  },
-  {
-    id: 'cpu-2',
-    label: 'CPU 2',
-    accentColor: '#42d392',
-    status: 'executando',
-    runningProcess: {
-      id: 'U-07' as `P${number}`,
-      phase: 'fase_cpu_2',
-      remainingCycles: 2,
-      totalCycles: 8,
-    },
-  },
-  {
-    id: 'cpu-3',
-    label: 'CPU 3',
-    accentColor: '#5cc8ff',
-    status: 'executando',
-    runningProcess: {
-      id: 'U-03' as `P${number}`,
-      phase: 'cpu_bound',
-      remainingCycles: 5,
-      totalCycles: 12,
-    },
-  },
-  {
-    id: 'cpu-4',
-    label: 'CPU 4',
-    accentColor: '#a78bfa',
-    status: 'ociosa',
-    runningProcess: null,
-  },
-]
+async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(url, options)
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.detail ?? `Falha HTTP ${response.status}`)
+  }
+
+  return response.json() as Promise<T>
+}
 
 function App() {
-  const [elapsedTime, setElapsedTime] = useState(INITIAL_TIME)
-  const [isPaused, setIsPaused] = useState(false)
+  const [snapshot, setSnapshot] = useState<SimulatorSnapshot>(fallbackSnapshot)
+  const [isPaused, setIsPaused] = useState(true)
   const [speed, setSpeed] = useState(INITIAL_SPEED)
 
   useEffect(() => {
-    if (isPaused) {
-      return
-    }
+    let active = true
+
+    fetchJson<SimulatorSnapshot>(`${API_BASE_URL}/snapshot`)
+      .then((s) => { if (active) setSnapshot(s) })
+      .catch(() => { /* backend indisponivel; usa fallback */ })
+
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (isPaused) return
 
     const interval = window.setInterval(() => {
-      setElapsedTime((currentTime) => currentTime + 1)
+      void fetchJson<SimulatorSnapshot>(`${API_BASE_URL}/tick`, { method: 'POST' })
+        .then((next) => setSnapshot(next))
+        .catch(() => setIsPaused(true))
     }, 1000 / speed)
 
-    return () => {
-      window.clearInterval(interval)
-    }
+    return () => { window.clearInterval(interval) }
   }, [isPaused, speed])
 
+  async function advanceTick() {
+    const next = await fetchJson<SimulatorSnapshot>(`${API_BASE_URL}/tick`, { method: 'POST' })
+    setSnapshot(next)
+  }
+
   function handleTogglePause() {
-    setIsPaused((currentValue) => !currentValue)
+    setIsPaused((v) => !v)
   }
 
   function handleIncreaseSpeed() {
-    setSpeed((currentSpeed) => {
-      const currentIndex = SPEED_STEPS.indexOf(currentSpeed)
-      const nextIndex = (currentIndex + 1) % SPEED_STEPS.length
-      return SPEED_STEPS[nextIndex]
+    setSpeed((current) => {
+      const next = (SPEED_STEPS.indexOf(current) + 1) % SPEED_STEPS.length
+      return SPEED_STEPS[next]
     })
   }
 
-  function handleReset() {
-    setElapsedTime(INITIAL_TIME)
+  async function handleReset() {
+    const s = await fetchJson<SimulatorSnapshot>(`${API_BASE_URL}/reset`, { method: 'POST' })
+    setSnapshot(s)
     setSpeed(INITIAL_SPEED)
     setIsPaused(true)
   }
 
-  function handleStepBackward() {
+  async function handleStepBackward() {
     if (!isPaused) return
-    setElapsedTime((currentTime) => Math.max(INITIAL_TIME, currentTime - 1))
+    const s = await fetchJson<SimulatorSnapshot>(`${API_BASE_URL}/step-back`, { method: 'POST' })
+    setSnapshot(s)
   }
 
   function handleStepForward() {
     if (!isPaused) return
-    setElapsedTime((currentTime) => currentTime + 1)
+    void advanceTick()
   }
 
   return (
     <main aria-label="Tela inicial do simulador" className="min-h-screen px-4 py-5">
-      <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-6">
+      {snapshot.warnings.length > 0 && (
+        <div className="mx-auto mb-4 w-full max-w-[94rem] rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3">
+          {snapshot.warnings.map((w, i) => (
+            <p key={i} className="font-mono text-[0.72rem] text-amber-300">{w}</p>
+          ))}
+        </div>
+      )}
+      <div className="mx-auto flex w-full max-w-[94rem] flex-col items-center gap-5">
         <SimulationHeader
-          elapsedTime={elapsedTime}
+          elapsedTime={snapshot.clock}
           isPaused={isPaused}
           speed={speed}
-          canStepBackward={elapsedTime > INITIAL_TIME}
+          canStepBackward={snapshot.clock > 0}
           onReset={handleReset}
           onStepBackward={handleStepBackward}
           onStepForward={handleStepForward}
@@ -120,30 +106,30 @@ function App() {
           onIncreaseSpeed={handleIncreaseSpeed}
         />
 
-        <section className="flex w-full gap-4">
-          <div className="flex flex-col gap-6" style={{ width: 'fit-content' }}>
-            <div className="flex gap-2">
-              {CPU_PREVIEW.map((cpu) => (
-                <CpuCard key={cpu.id} cpu={cpu} accentColor={cpu.accentColor} />
+        <section className="grid w-full grid-cols-1 gap-4 2xl:grid-cols-[minmax(35rem,42rem)_minmax(32rem,1fr)_17rem]">
+          <div className="flex min-w-0 flex-col gap-6">
+            <div className="flex flex-wrap gap-2">
+              {snapshot.cpus.map((cpu) => (
+                <CpuCard key={cpu.id} cpu={cpu} />
               ))}
             </div>
 
             <div className="flex-1">
-              <SchedulingQueues queues={fallbackSnapshot.queues} />
+              <SchedulingQueues queues={snapshot.queues} />
             </div>
           </div>
 
-          <div className="flex flex-1 flex-col gap-4">
-            <div style={{ height: '10.5rem' }}>
-              <EventLog events={fallbackSnapshot.eventLog} />
+          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(22rem,1fr)_minmax(22rem,1fr)] 2xl:flex 2xl:flex-col">
+            <div className="h-[10.5rem] xl:h-full 2xl:h-[10.5rem]">
+              <EventLog events={snapshot.eventLog} />
             </div>
-            <div className="flex-1">
-              <DisksPanel disks={fallbackSnapshot.disks} />
+            <div className="min-h-[18rem] min-w-[22rem] 2xl:flex-1">
+              <DisksPanel disks={snapshot.disks} />
             </div>
           </div>
 
-          <div className="shrink-0">
-            <MainMemoryPanel memory={fallbackSnapshot.memory} />
+          <div className="w-full 2xl:w-auto">
+            <MainMemoryPanel memory={snapshot.memory} />
           </div>
         </section>
       </div>

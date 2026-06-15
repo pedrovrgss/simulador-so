@@ -1,83 +1,83 @@
-from __future__ import annotations
-
-from typing import Literal
-
-from pydantic import BaseModel, ConfigDict, Field
-
-ProcessClass = Literal["tempo_real", "usuario"]
+from pydantic import BaseModel
 
 
-class ApiModel(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
-
-
-class ProcessCard(ApiModel):
+class ProcessCard(BaseModel):
     pid: str
     name: str
     color: str
-    class_label: str = Field(alias="classLabel")
-    queue_label: str = Field(alias="queueLabel")
+    classLabel: str
+    queueLabel: str
+    memoryMb: int | None = None
 
 
-class CpuSlot(ApiModel):
+class CpuSlot(BaseModel):
     id: str
     label: str
-    running_process: ProcessCard | None = Field(alias="runningProcess", default=None)
-    quantum_left: int | None = Field(alias="quantumLeft", default=None)
-    remaining_burst: int | None = Field(alias="remainingBurst", default=None)
+    runningProcess: ProcessCard | None = None
+    quantumLeft: int | None = None
+    remainingBurst: int | None = None
+    totalBurst: int | None = None
+    phase: str | None = None
 
 
-class QueueSnapshot(ApiModel):
+class QueueSnapshot(BaseModel):
     id: str
     title: str
     kind: str
     processes: list[ProcessCard]
+    activeProcessPids: list[str] | None = None
 
 
-class MemoryBlock(ApiModel):
+class MemoryBlock(BaseModel):
     id: str
-    label: str
+    startMb: int   # endereco de inicio do segmento em MiB
+    sizeMb: int    # tamanho real do segmento em MiB
     occupied: bool
-    owner_pid: str | None = Field(alias="ownerPid", default=None)
+    ownerPid: str | None = None
     color: str | None = None
 
 
-class MemorySnapshot(ApiModel):
-    total_mb: int = Field(alias="totalMb")
-    used_mb: int = Field(alias="usedMb")
+class MemorySnapshot(BaseModel):
+    totalMb: int
+    usedMb: int
     blocks: list[MemoryBlock]
 
 
-class DiskSnapshot(ApiModel):
+class DiskSnapshot(BaseModel):
     id: str
     label: str
-    active_process: ProcessCard | None = Field(alias="activeProcess", default=None)
-    waiting_queue: list[ProcessCard] = Field(alias="waitingQueue")
+    # Processo atualmente fazendo I/O neste disco (None se livre).
+    activeIoProcess: ProcessCard | None = None
+    # Processos que ja foram carregados na RAM a partir deste disco.
+    inMemory: list[ProcessCard] = []
+    # Processos que ainda estao so no armazenamento secundario (aguardando RAM).
+    onDiskOnly: list[ProcessCard] = []
 
 
-class EventEntry(ApiModel):
+class EventEntry(BaseModel):
     id: str
     time: int
     message: str
 
 
-class SimulatorSnapshot(ApiModel):
+class SimulatorSnapshot(BaseModel):
     clock: int
     cpus: list[CpuSlot]
     queues: list[QueueSnapshot]
     memory: MemorySnapshot
     disks: list[DiskSnapshot]
-    event_log: list[EventEntry] = Field(alias="eventLog")
+    eventLog: list[EventEntry]
+    warnings: list[str] = []
 
 
-class ProcessDescriptor(ApiModel):
+class ProcessDescriptor(BaseModel):
     pid: str
     name: str
-    process_class: ProcessClass
-    arrival_time: int
+    process_class: str
+    arrival_time: int = 0
     priority: int
     memory_mb: int
     cpu_burst_1: int
-    disk_id: int | None = None
-    io_time: int | None = None
-    cpu_burst_2: int | None = None
+    io_disks: list[int] = []
+    io_time: int = 0
+    cpu_burst_2: int = 0

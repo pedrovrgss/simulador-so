@@ -1,1 +1,1 @@
-"""Aplicacao backend do simulador de Sistemas Operacionais."""
+"""Backend do simulador de Sistemas Operacionais."""
