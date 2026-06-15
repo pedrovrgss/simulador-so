@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
-# Controle dos 4 drives de disco para operacoes de I/O.
-# Um disco so e marcado como ocupado durante a fase de I/O efetiva do processo,
-# nao desde a chegada. A exibicao no painel usa home_disk_id de cada ProcessRuntime.
+# Controle dos drives de disco e dos canais DMA do sistema.
+# Os 2 canais DMA sao compartilhados entre carregamento de memoria e I/O em disco.
 
 TOTAL_DISKS = 4
+TOTAL_DMA_CHANNELS = 2
 
 
 @dataclass
@@ -40,3 +40,32 @@ class DiskManager:
 
     def _get(self, disk_id: int) -> Disk:
         return self.disks[disk_id - 1]
+
+
+@dataclass
+class DMAChannel:
+    id: int
+    pid: str | None = None
+
+
+class DMAManager:
+    def __init__(self, total: int = TOTAL_DMA_CHANNELS) -> None:
+        self.channels = [DMAChannel(id=i + 1) for i in range(total)]
+
+    def available(self) -> bool:
+        return any(ch.pid is None for ch in self.channels)
+
+    def acquire(self, pid: str) -> None:
+        for ch in self.channels:
+            if ch.pid is None:
+                ch.pid = pid
+                return
+
+    def release(self, pid: str) -> None:
+        for ch in self.channels:
+            if ch.pid == pid:
+                ch.pid = None
+                return
+
+    def in_use(self) -> int:
+        return sum(1 for ch in self.channels if ch.pid is not None)

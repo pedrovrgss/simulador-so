@@ -19,6 +19,7 @@ def build_snapshot(
     blocked_io: list[str],
     blocked_disk: list[str],
     waiting_memory: list[str],
+    waiting_dma_memory: list[str],
     loading_memory: list[str],
     finished: list[str],
     rejected: list[str],
@@ -43,6 +44,7 @@ def build_snapshot(
             blocked_io=blocked_io,
             blocked_disk=blocked_disk,
             waiting_memory=waiting_memory,
+            waiting_dma_memory=waiting_dma_memory,
             loading_memory=loading_memory,
             finished=finished,
             rejected=rejected,
@@ -53,6 +55,7 @@ def build_snapshot(
             cards=cards,
             disks=disks,
             waiting_memory=waiting_memory,
+            waiting_dma_memory=waiting_dma_memory,
             loading_memory=loading_memory,
             finished=finished,
             rejected=rejected,
@@ -114,13 +117,14 @@ def _disk_snapshots(
     cards: dict[str, ProcessCard],
     disks: DiskManager,
     waiting_memory: list[str],
+    waiting_dma_memory: list[str],
     loading_memory: list[str],
     finished: list[str],
     rejected: list[str],
 ) -> list[DiskSnapshot]:
     inactive = set(finished) | set(rejected)
-    # "somente em disco": aguardando RAM ou em transferencia DMA (RAM reservada, ainda nao disponivel).
-    on_disk_only = set(waiting_memory) | set(loading_memory)
+    # "somente em disco": aguardando RAM, aguardando canal DMA ou em transferencia DMA.
+    on_disk_only = set(waiting_memory) | set(waiting_dma_memory) | set(loading_memory)
 
     by_disk: dict[int, list[str]] = {i: [] for i in range(1, 5)}
     for pid, process in processes.items():
@@ -162,16 +166,15 @@ def _queue_snapshots(
     blocked_io: list[str],
     blocked_disk: list[str],
     waiting_memory: list[str],
+    waiting_dma_memory: list[str],
     loading_memory: list[str],
     finished: list[str],
     rejected: list[str],
 ) -> list[QueueSnapshot]:
     queues = scheduler.queue_items()
 
-    # Processos aguardando carga: sem RAM ainda.
-    aguardando_carga = list(waiting_memory)
-    # loading_memory: RAM alocada, DMA disco->RAM em curso neste tick.
-    fila_memoria_pids = loading_memory + aguardando_carga
+    # Fila de memoria: em DMA ativo | aguardando canal DMA | aguardando RAM.
+    fila_memoria_pids = loading_memory + waiting_dma_memory + list(waiting_memory)
 
     # Fila de I/O: processos aguardando disco primeiro, depois os em transferencia ativa.
     # Os em blocked_io tem drives adquiridos; os em blocked_disk ainda aguardam o drive.

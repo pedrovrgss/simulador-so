@@ -77,22 +77,43 @@ def _carregar_na_memoria(sim, process: ProcessRuntime) -> None:
 
 
 def _iniciar_dma_memoria(sim, process: ProcessRuntime) -> None:
-    """Memoria alocada: inicia transferencia DMA disco->RAM por 1 tick."""
-    sim.change_state(process, "CARREGANDO_MEMORIA")
-    sim.loading_memory.append(process.pid)
-    sim.log_event(
-        f"{process.display_pid}: iniciando DMA disco->RAM ({process.memory_mb} MiB)."
-    )
+    """Tenta iniciar o carregamento DMA disco->RAM.
+    Se nao houver canal DMA livre, o processo entra em waiting_dma_memory."""
+    if sim.dma.available():
+        sim.dma.acquire(process.pid)
+        sim.loading_memory.append(process.pid)
+        sim.log_event(
+            f"{process.display_pid}: iniciando DMA disco->RAM ({process.memory_mb} MiB)."
+        )
+    else:
+        sim.waiting_dma_memory.append(process.pid)
+        sim.log_event(f"{process.display_pid}: aguardando canal DMA livre.")
 
 
 def avancar_carregamento_memoria(sim) -> None:
-    """Conclui a transferencia DMA do processo na cabeca da fila (um por tick)."""
-    if not sim.loading_memory:
-        return
-    pid = sim.loading_memory.pop(0)
-    process = sim.processes[pid]
-    sim.log_event(f"{process.display_pid}: DMA concluido; pronto para executar.")
-    colocar_na_fila_pronto(sim, process)
+    """Conclui o DMA de todos os processos que iniciaram no tick anterior e
+    tenta iniciar DMA para os que estavam aguardando canal."""
+    for pid in list(sim.loading_memory):
+        sim.loading_memory.remove(pid)
+        sim.dma.release(pid)
+        process = sim.processes[pid]
+        sim.log_event(f"{process.display_pid}: DMA concluido; pronto para executar.")
+        colocar_na_fila_pronto(sim, process)
+    tentar_dma_memoria(sim)
+
+
+def tentar_dma_memoria(sim) -> None:
+    """Atribui canais DMA livres aos processos em waiting_dma_memory."""
+    for pid in list(sim.waiting_dma_memory):
+        if not sim.dma.available():
+            break
+        sim.waiting_dma_memory.remove(pid)
+        sim.dma.acquire(pid)
+        sim.loading_memory.append(pid)
+        process = sim.processes[pid]
+        sim.log_event(
+            f"{process.display_pid}: canal DMA livre; iniciando DMA disco->RAM ({process.memory_mb} MiB)."
+        )
 
 
 def tentar_processos_em_espera(sim) -> None:
